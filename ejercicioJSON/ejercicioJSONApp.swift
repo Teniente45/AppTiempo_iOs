@@ -25,7 +25,7 @@ struct ejercicioJSONApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            WeatherSelectorView()
         }
         .modelContainer(sharedModelContainer)
     }

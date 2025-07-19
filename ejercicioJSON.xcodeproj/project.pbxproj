@@ -29,22 +29,9 @@
 		C8BC2AEF2E2BC1C000C94F57 /* ejercicioJSONUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ejercicioJSONUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		C8BC2AF72E2BC1C000C94F57 /* Exceptions for "ejercicioJSON" folder in "ejercicioJSON" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = C8BC2AD32E2BC1BE00C94F57 /* ejercicioJSON */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C8BC2AD62E2BC1BE00C94F57 /* ejercicioJSON */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C8BC2AF72E2BC1C000C94F57 /* Exceptions for "ejercicioJSON" folder in "ejercicioJSON" target */,
-			);
 			path = ejercicioJSON;
 			sourceTree = "<group>";
 		};
