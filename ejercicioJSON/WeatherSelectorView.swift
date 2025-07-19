@@ -78,8 +78,14 @@ struct WeatherSelectorView: View {
                 }
 
                 if !resultadoTiempo.isEmpty {
-                    Text("⛅ Tiempo: \(resultadoTiempo)")
-                        .padding(.top, 20)
+                    ScrollView {
+                        Text("⛅ Tiempo: \(resultadoTiempo)")
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .background(Color.yellow.opacity(0.1))
+                    .cornerRadius(10)
+                    .padding(.top, 20)
                 }
 
                 Spacer()
@@ -182,57 +188,82 @@ struct WeatherSelectorView: View {
 
     private func fetchTiempo() {
         guard let provincia = provinciaSeleccionada else {
-            resultadoTiempo = "Selecciona una provincia válida."
+            DispatchQueue.main.async {
+                resultadoTiempo = "Selecciona una provincia válida."
+            }
             return
         }
 
-        // 🔐 La API Key se ha movido a Info.plist para protegerla del código fuente
-        // Método usado: almacenamiento seguro mediante Info.plist (no incluirlo en control de versiones públicos)
         let apiKey = Bundle.main.object(forInfoDictionaryKey: "AEMET_API_KEY") as? String ?? ""
         let endpoint = "https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/\(provincia.codigo)?api_key=\(apiKey)"
         print("🌐 URL generada: \(endpoint)")
 
         guard let url = URL(string: endpoint) else {
-            resultadoTiempo = "URL inválida."
+            DispatchQueue.main.async {
+                resultadoTiempo = "URL inválida."
+            }
             return
         }
 
         URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
+                print("🛰️ JSON respuesta 1:\n", String(data: data, encoding: .utf8) ?? "Sin datos")
                 if let root = try? JSONDecoder().decode([String: String].self, from: data),
                    let datosUrl = root["datos"],
                    let urlDatos = URL(string: datosUrl) {
-                    URLSession.shared.dataTask(with: urlDatos) { data2, _, _ in
-                        guard let data2 = data2 else {
-                            DispatchQueue.main.async {
-                                resultadoTiempo = "Error al obtener los datos de predicción."
-                            }
-                            return
-                        }
-                        print("📦 JSON recibido:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
-                        do {
-                            let predicciones = try JSONDecoder().decode([PrediccionMunicipio].self, from: data2)
-                            if let prediccion = predicciones.first?.prediccion?.dia.first {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        URLSession.shared.dataTask(with: urlDatos) { data2, _, _ in
+                            guard let data2 = data2 else {
                                 DispatchQueue.main.async {
-                                    let estado = prediccion.estadoCielo.first?.descripcion ?? "Sin datos"
-                                    let maxima = prediccion.temperatura.maxima
-                                    let minima = prediccion.temperatura.minima
-                                    resultadoTiempo = "\(estado). Máx: \(maxima)ºC / Mín: \(minima)ºC"
-                                    print("✅ Predicción mostrada correctamente.")
+                                    resultadoTiempo = "Error al obtener los datos de predicción."
                                 }
-                            } else {
-                                print("⚠️ No se encontró ninguna predicción para la provincia seleccionada.")
+                                return
+                            }
+                            print("📦 JSON respuesta 2:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
+                            print("📦 JSON bruto decodificado:\n", try? JSONSerialization.jsonObject(with: data2, options: []))
+                            do {
+                                let jsonArray = try JSONSerialization.jsonObject(with: data2, options: []) as? [[String: Any]]
+                                guard let json = jsonArray?.first,
+                                      let prediccion = json["prediccion"] as? [String: Any],
+                                      let dias = prediccion["dia"] as? [[String: Any]] else {
+                                    DispatchQueue.main.async {
+                                        resultadoTiempo = "No se pudo interpretar la predicción meteorológica."
+                                    }
+                                    return
+                                }
+
+                                let primeros4Dias = dias.prefix(4)
+                                let formateador = DateFormatter()
+                                formateador.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+
+                                let texto = primeros4Dias.enumerated().compactMap { (index, dia) -> String? in
+                                    let fechaTexto = dia["fecha"] as? String ?? ""
+                                    let estadoCieloArray = dia["estadoCielo"] as? [[String: Any]] ?? []
+                                    let descripcionCielo = (estadoCieloArray.first { $0["descripcion"] != nil }?["descripcion"] as? String) ?? "Sin datos"
+
+                                    let temperatura = dia["temperatura"] as? [String: Any]
+                                    let max = temperatura?["maxima"] as? Int ?? 0
+                                    let min = temperatura?["minima"] as? Int ?? 0
+
+                                    return """
+                                    📅 Día \(index + 1) - \(fechaTexto.prefix(10))
+                                    ☁️ Estado: \(descripcionCielo)
+                                    🌡 Máx: \(max)ºC / Mín: \(min)ºC
+                                    """
+                                }.joined(separator: "\n\n")
+
                                 DispatchQueue.main.async {
-                                    resultadoTiempo = "No hay datos disponibles para esta provincia."
+                                    resultadoTiempo = texto
+                                }
+                                print("✅ Predicción mostrada correctamente.")
+                            } catch {
+                                print("❌ Error interpretando el JSON final: \(error)")
+                                DispatchQueue.main.async {
+                                    resultadoTiempo = "No se pudieron interpretar los datos del tiempo."
                                 }
                             }
-                        } catch {
-                            print("❌ Error decodificando JSON: \(error)")
-                            DispatchQueue.main.async {
-                                resultadoTiempo = "No se pudieron interpretar los datos del tiempo."
-                            }
-                        }
-                    }.resume()
+                        }.resume()
+                    }
                 }
             } else {
                 DispatchQueue.main.async {
