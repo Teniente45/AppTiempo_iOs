@@ -6,5 +6,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>AEMET_API_KEY</key>
+	<string>eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJKdWFudGVuaWVudGU0NUBnbWFpbC5jb20iLCJqdGkiOiIwNGJhZmI3Yi05ZjA2LTQxMjMtYTc3MC0zODIwZWU3OWYwMDkiLCJpc3MiOiJBRU1FVCIsImlhdCI6MTc1MjkyNzgzMywidXNlcklkIjoiMDRiYWZiN2ItOWYwNi00MTIzLWE3NzAtMzgyMGVlNzlmMDA5Iiwicm9sZSI6IiJ9.nneSPnznuRTTn_cbv6XzOGHdEAIPitdEGUIqajxO5_8</string>
 </dict>
 </plist>
