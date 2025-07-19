@@ -41,11 +41,7 @@ struct WeatherSelectorView: View {
                         .padding(.vertical)
                     Spacer()
                 }
-
-                Text("Selecciona Municipio")
-                    .font(.title2)
-                    .bold()
-
+                
                 Menu {
                     ForEach(comunidadesOrdenadas, id: \.self) { comunidad in
                         Button(action: {
@@ -198,7 +194,9 @@ struct WeatherSelectorView: View {
 
     // MARK: - Función para obtener el tiempo meteorológico de una provincia seleccionada
     private func fetchTiempo() {
-        guard let provincia = provinciaSeleccionada else {
+        guard let provincia = provinciaSeleccionada ?? (comunidadSeleccionada.flatMap { comunidad in
+            provinciasPorComunidad[comunidad]?.sorted(by: { $0.nombre < $1.nombre }).first
+        }) else {
             DispatchQueue.main.async {
                 resultadoTiempo = "Selecciona una provincia válida."
             }
