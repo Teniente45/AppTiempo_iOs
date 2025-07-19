@@ -7,6 +7,13 @@
 
 import SwiftUI
 
+struct AEMETRespuesta: Decodable {
+    let descripcion: String
+    let estado: Int
+    let datos: String
+    let metadatos: String
+}
+
 struct Provincia: Identifiable, Hashable {    let id = UUID()
     let nombre: String
     let comunidad: String
@@ -208,62 +215,68 @@ struct WeatherSelectorView: View {
         URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
                 print("🛰️ JSON respuesta 1:\n", String(data: data, encoding: .utf8) ?? "Sin datos")
-                if let root = try? JSONDecoder().decode([String: String].self, from: data),
-                   let datosUrl = root["datos"],
-                   let urlDatos = URL(string: datosUrl) {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        URLSession.shared.dataTask(with: urlDatos) { data2, _, _ in
-                            guard let data2 = data2 else {
-                                DispatchQueue.main.async {
-                                    resultadoTiempo = "Error al obtener los datos de predicción."
-                                }
-                                return
-                            }
-                            print("📦 JSON respuesta 2:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
-                            print("📦 JSON bruto decodificado:\n", try? JSONSerialization.jsonObject(with: data2, options: []))
-                            do {
-                                let jsonArray = try JSONSerialization.jsonObject(with: data2, options: []) as? [[String: Any]]
-                                guard let json = jsonArray?.first,
-                                      let prediccion = json["prediccion"] as? [String: Any],
-                                      let dias = prediccion["dia"] as? [[String: Any]] else {
+                if let respuesta = try? JSONDecoder().decode(AEMETRespuesta.self, from: data) {
+                    let datosUrl = respuesta.datos
+                    print("🔗 URL de datos: \(datosUrl)")
+                    if let urlDatos = URL(string: datosUrl) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            URLSession.shared.dataTask(with: urlDatos) { data2, _, _ in
+                                guard let data2 = data2 else {
                                     DispatchQueue.main.async {
-                                        resultadoTiempo = "No se pudo interpretar la predicción meteorológica."
+                                        resultadoTiempo = "Error al obtener los datos de predicción."
                                     }
                                     return
                                 }
+                                print("📦 JSON respuesta 2:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
+                                print("📦 JSON bruto decodificado:\n", try? JSONSerialization.jsonObject(with: data2, options: []))
+                                do {
+                                    let jsonArray = try JSONSerialization.jsonObject(with: data2, options: []) as? [[String: Any]]
+                                    guard let json = jsonArray?.first,
+                                          let prediccion = json["prediccion"] as? [String: Any],
+                                          let dias = prediccion["dia"] as? [[String: Any]] else {
+                                        DispatchQueue.main.async {
+                                            resultadoTiempo = "No se pudo interpretar la predicción meteorológica."
+                                        }
+                                        return
+                                    }
 
-                                let primeros4Dias = dias.prefix(4)
-                                let formateador = DateFormatter()
-                                formateador.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                                    let primeros4Dias = dias.prefix(4)
+                                    let formateador = DateFormatter()
+                                    formateador.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
 
-                                let texto = primeros4Dias.enumerated().compactMap { (index, dia) -> String? in
-                                    let fechaTexto = dia["fecha"] as? String ?? ""
-                                    let estadoCieloArray = dia["estadoCielo"] as? [[String: Any]] ?? []
-                                    let descripcionCielo = (estadoCieloArray.first { $0["descripcion"] != nil }?["descripcion"] as? String) ?? "Sin datos"
+                                    let texto = primeros4Dias.enumerated().compactMap { (index, dia) -> String? in
+                                        let fechaTexto = dia["fecha"] as? String ?? ""
+                                        let estadoCieloArray = dia["estadoCielo"] as? [[String: Any]] ?? []
+                                        let descripcionCielo = (estadoCieloArray.first { $0["descripcion"] != nil }?["descripcion"] as? String) ?? "Sin datos"
 
-                                    let temperatura = dia["temperatura"] as? [String: Any]
-                                    let max = temperatura?["maxima"] as? Int ?? 0
-                                    let min = temperatura?["minima"] as? Int ?? 0
+                                        let temperatura = dia["temperatura"] as? [String: Any]
+                                        let max = temperatura?["maxima"] as? Int ?? 0
+                                        let min = temperatura?["minima"] as? Int ?? 0
 
-                                    return """
-                                    📅 Día \(index + 1) - \(fechaTexto.prefix(10))
-                                    ☁️ Estado: \(descripcionCielo)
-                                    🌡 Máx: \(max)ºC / Mín: \(min)ºC
-                                    """
-                                }.joined(separator: "\n\n")
+                                        return """
+                                        📅 Día \(index + 1) - \(fechaTexto.prefix(10))
+                                        ☁️ Estado: \(descripcionCielo)
+                                        🌡 Máx: \(max)ºC / Mín: \(min)ºC
+                                        """
+                                    }.joined(separator: "\n\n")
 
-                                DispatchQueue.main.async {
-                                    resultadoTiempo = texto
+                                    DispatchQueue.main.async {
+                                        resultadoTiempo = texto
+                                    }
+                                    print("✅ Predicción mostrada correctamente.")
+                                } catch {
+                                    print("❌ Error interpretando el JSON final: \(error)")
+                                    DispatchQueue.main.async {
+                                        resultadoTiempo = "No se pudieron interpretar los datos del tiempo."
+                                    }
                                 }
-                                print("✅ Predicción mostrada correctamente.")
-                            } catch {
-                                print("❌ Error interpretando el JSON final: \(error)")
-                                DispatchQueue.main.async {
-                                    resultadoTiempo = "No se pudieron interpretar los datos del tiempo."
-                                }
-                            }
-                        }.resume()
+                            }.resume()
+                        }
+                    } else {
+                        print("❌ URL inválida: \(datosUrl)")
                     }
+                } else {
+                    print("❌ Error decodificando el JSON inicial.")
                 }
             } else {
                 DispatchQueue.main.async {
