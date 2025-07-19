@@ -75,6 +75,9 @@ struct WeatherSelectorView: View {
 
                 Button(action: {
                     fetchTiempo()
+                    // MARK: - Ocultar el picker de provincias tras pulsar "Buscar"
+                    comunidadSeleccionada = nil
+                    provinciaSeleccionada = nil
                 }) {
                     Text("Buscar")
                         .frame(maxWidth: .infinity)
@@ -193,6 +196,7 @@ struct WeatherSelectorView: View {
         ]
     }
 
+    // MARK: - Función para obtener el tiempo meteorológico de una provincia seleccionada
     private func fetchTiempo() {
         guard let provincia = provinciaSeleccionada else {
             DispatchQueue.main.async {
@@ -220,19 +224,40 @@ struct WeatherSelectorView: View {
                     print("🔗 URL de datos: \(datosUrl)")
                     if let urlDatos = URL(string: datosUrl) {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            URLSession.shared.dataTask(with: urlDatos) { data2, _, _ in
+                            URLSession.shared.dataTask(with: urlDatos) { data2, response, _ in
                                 guard let data2 = data2 else {
                                     DispatchQueue.main.async {
                                         resultadoTiempo = "Error al obtener los datos de predicción."
                                     }
                                     return
                                 }
+
+                                if let httpResponse = response as? HTTPURLResponse {
+                                    print("🧾 Tipo de contenido:", httpResponse.allHeaderFields["Content-Type"] ?? "Desconocido")
+                                }
+
+                                print("📦 Bytes crudos recibidos:", data2)
+                                print("📦 Texto recibido:", String(data: data2, encoding: .utf8) ?? "No es UTF-8")
+                                print("📦 Datos crudos JSON desde URL 'datos':\n\(String(decoding: data2, as: UTF8.self))")
+
                                 print("📦 JSON respuesta 2:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
-                                print("📦 JSON bruto decodificado:\n", try? JSONSerialization.jsonObject(with: data2, options: []))
+                                if let jsonBruto = try? JSONSerialization.jsonObject(with: data2, options: []) {
+                                    print("📦 JSON bruto decodificado:\n\(jsonBruto)")
+                                } else {
+                                    print("📦 JSON bruto decodificado: nil")
+                                }
                                 do {
-                                    let jsonArray = try JSONSerialization.jsonObject(with: data2, options: []) as? [[String: Any]]
-                                    guard let json = jsonArray?.first,
-                                          let prediccion = json["prediccion"] as? [String: Any],
+                                    // Conversión de codificación Latin1 -> UTF-8 antes del parseo JSON
+                                    let stringLatin1 = String(data: data2, encoding: .isoLatin1) ?? ""
+                                    guard let dataUTF8 = stringLatin1.data(using: .utf8) else {
+                                        DispatchQueue.main.async {
+                                            resultadoTiempo = "Error de codificación del JSON."
+                                        }
+                                        return
+                                    }
+                                    let jsonArray = try JSONSerialization.jsonObject(with: dataUTF8, options: []) as? [[String: Any]]
+                                    guard let rootObject = jsonArray?.first,
+                                          let prediccion = rootObject["prediccion"] as? [String: Any],
                                           let dias = prediccion["dia"] as? [[String: Any]] else {
                                         DispatchQueue.main.async {
                                             resultadoTiempo = "No se pudo interpretar la predicción meteorológica."
@@ -241,22 +266,35 @@ struct WeatherSelectorView: View {
                                     }
 
                                     let primeros4Dias = dias.prefix(4)
-                                    let formateador = DateFormatter()
-                                    formateador.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-
                                     let texto = primeros4Dias.enumerated().compactMap { (index, dia) -> String? in
-                                        let fechaTexto = dia["fecha"] as? String ?? ""
+                                        let fechaTexto = dia["fecha"] as? String ?? "Fecha no disponible"
+
                                         let estadoCieloArray = dia["estadoCielo"] as? [[String: Any]] ?? []
-                                        let descripcionCielo = (estadoCieloArray.first { $0["descripcion"] != nil }?["descripcion"] as? String) ?? "Sin datos"
+                                        let descripcionCielo = (estadoCieloArray.first { ($0["descripcion"] as? String)?.isEmpty == false }?["descripcion"] as? String) ?? "Sin datos"
 
                                         let temperatura = dia["temperatura"] as? [String: Any]
                                         let max = temperatura?["maxima"] as? Int ?? 0
                                         let min = temperatura?["minima"] as? Int ?? 0
 
+                                        let probPrecipitacionArray = dia["probPrecipitacion"] as? [[String: Any]] ?? []
+                                        let probPrecipitacion = (probPrecipitacionArray.first { $0["value"] != nil }?["value"] as? Int) ?? 0
+
+                                        let humedad = dia["humedadRelativa"] as? [String: Any]
+                                        let humedadMax = humedad?["maxima"] as? Int ?? 0
+                                        let humedadMin = humedad?["minima"] as? Int ?? 0
+
+                                        let vientoArray = dia["viento"] as? [[String: Any]] ?? []
+                                        let viento = vientoArray.first { ($0["velocidad"] as? Int ?? 0) > 0 }
+                                        let vientoDir = viento?["direccion"] as? String ?? "?"
+                                        let vientoVel = viento?["velocidad"] as? Int ?? 0
+
                                         return """
                                         📅 Día \(index + 1) - \(fechaTexto.prefix(10))
                                         ☁️ Estado: \(descripcionCielo)
+                                        🌧 Lluvia: \(probPrecipitacion)%
                                         🌡 Máx: \(max)ºC / Mín: \(min)ºC
+                                        💧 Humedad: \(humedadMax)% / \(humedadMin)%
+                                        💨 Viento: \(vientoDir) \(vientoVel) km/h
                                         """
                                     }.joined(separator: "\n\n")
 
