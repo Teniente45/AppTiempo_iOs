@@ -5,6 +5,23 @@
 //  Created by Juan López Marín on 19/7/25.
 //
 
+
+// MARK: Todos los Prints de consola
+//
+// 🌐 URL generada: Muestra la URL de la API generada con el código de provincia.
+// 🛰️ JSON respuesta 1: Muestra la respuesta JSON inicial de la API (nivel 1).
+// 🔗 URL de datos: Muestra la URL que contiene los datos meteorológicos detallados.
+// 🧾 Tipo de contenido: Indica el tipo MIME recibido desde la URL de datos.
+// 📦 Bytes crudos recibidos: Muestra los bytes crudos que llegaron desde la URL de datos.
+// 📦 Texto recibido: Imprime el contenido recibido como texto (intentando UTF-8).
+// 📦 Datos crudos JSON desde URL 'datos': Imprime los datos del JSON en forma de texto.
+// 📦 JSON respuesta 2: Muestra el JSON completo recibido desde la URL 'datos'.
+// 📦 JSON bruto decodificado: Imprime el objeto Swift resultante del parseo, si es exitoso.
+// ✅ Predicción mostrada correctamente.: Confirmación de que se ha interpretado y mostrado la predicción.
+// ❌ URL inválida: Se generó una URL incorrecta para la segunda petición.
+// ❌ Error decodificando el JSON inicial.: Fallo al interpretar la respuesta JSON inicial.
+// ❌ Error interpretando el JSON final: Se produjo un error al interpretar el JSON de la predicción.
+
 import SwiftUI
 
 struct AEMETRespuesta: Decodable {
@@ -104,6 +121,7 @@ struct WeatherSelectorView: View {
         }
     }
 
+    // MARK: - Carga el diccionario de provincias agrupadas por comunidad autónoma
     private func cargarProvincias() {
         provinciasPorComunidad = [
             "Andalucía": [
@@ -192,7 +210,7 @@ struct WeatherSelectorView: View {
         ]
     }
 
-    // MARK: - Función para obtener el tiempo meteorológico de una provincia seleccionada
+    // MARK: - Obtiene el tiempo meteorológico de la provincia seleccionada y procesa la respuesta de la API
     private func fetchTiempo() {
         guard let provincia = provinciaSeleccionada ?? (comunidadSeleccionada.flatMap { comunidad in
             provinciasPorComunidad[comunidad]?.sorted(by: { $0.nombre < $1.nombre }).first
@@ -205,6 +223,8 @@ struct WeatherSelectorView: View {
 
         let apiKey = Bundle.main.object(forInfoDictionaryKey: "AEMET_API_KEY") as? String ?? ""
         let endpoint = "https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/diaria/\(provincia.codigo)?api_key=\(apiKey)"
+        // MARK: - Prints de depuración
+        // Imprime la URL completa de la API generada con el código de provincia
         print("🌐 URL generada: \(endpoint)")
 
         guard let url = URL(string: endpoint) else {
@@ -216,9 +236,11 @@ struct WeatherSelectorView: View {
 
         URLSession.shared.dataTask(with: url) { data, _, _ in
             if let data = data {
+                // Imprime la respuesta JSON inicial de la API (primer nivel)
                 print("🛰️ JSON respuesta 1:\n", String(data: data, encoding: .utf8) ?? "Sin datos")
                 if let respuesta = try? JSONDecoder().decode(AEMETRespuesta.self, from: data) {
                     let datosUrl = respuesta.datos
+                    // Imprime la URL donde están los datos meteorológicos detallados
                     print("🔗 URL de datos: \(datosUrl)")
                     if let urlDatos = URL(string: datosUrl) {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
@@ -231,17 +253,24 @@ struct WeatherSelectorView: View {
                                 }
 
                                 if let httpResponse = response as? HTTPURLResponse {
+                                    // Imprime el tipo de contenido recibido en la respuesta HTTP
                                     print("🧾 Tipo de contenido:", httpResponse.allHeaderFields["Content-Type"] ?? "Desconocido")
                                 }
 
+                                // Imprime los bytes crudos recibidos de la URL de datos
                                 print("📦 Bytes crudos recibidos:", data2)
+                                // Imprime el texto recibido (intentando decodificar como UTF-8)
                                 print("📦 Texto recibido:", String(data: data2, encoding: .utf8) ?? "No es UTF-8")
+                                // Imprime los datos crudos JSON desde la URL 'datos' como texto
                                 print("📦 Datos crudos JSON desde URL 'datos':\n\(String(decoding: data2, as: UTF8.self))")
 
+                                // Imprime la respuesta JSON completa (segundo nivel)
                                 print("📦 JSON respuesta 2:\n", String(data: data2, encoding: .utf8) ?? "No se pudo decodificar")
                                 if let jsonBruto = try? JSONSerialization.jsonObject(with: data2, options: []) {
+                                    // Imprime el JSON bruto decodificado a objeto Swift
                                     print("📦 JSON bruto decodificado:\n\(jsonBruto)")
                                 } else {
+                                    // Imprime si no se pudo decodificar el JSON bruto
                                     print("📦 JSON bruto decodificado: nil")
                                 }
                                 do {
@@ -299,8 +328,10 @@ struct WeatherSelectorView: View {
                                     DispatchQueue.main.async {
                                         resultadoTiempo = texto
                                     }
+                                    // Imprime confirmación de que la predicción fue mostrada correctamente
                                     print("✅ Predicción mostrada correctamente.")
                                 } catch {
+                                    // Imprime el error si falló la interpretación del JSON final
                                     print("❌ Error interpretando el JSON final: \(error)")
                                     DispatchQueue.main.async {
                                         resultadoTiempo = "No se pudieron interpretar los datos del tiempo."
@@ -309,9 +340,11 @@ struct WeatherSelectorView: View {
                             }.resume()
                         }
                     } else {
+                        // Imprime si la URL de datos es inválida
                         print("❌ URL inválida: \(datosUrl)")
                     }
                 } else {
+                    // Imprime si hubo error decodificando el JSON inicial
                     print("❌ Error decodificando el JSON inicial.")
                 }
             } else {
